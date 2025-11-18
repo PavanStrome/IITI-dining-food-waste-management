@@ -10,9 +10,9 @@ const port = process.env.PORT || 4000;
 async function start() {
   await connectToDatabase();
   const server = http.createServer(app);
-  server.listen(port, () => {
+  server.listen(port, '0.0.0.0', () => {
     // eslint-disable-next-line no-console
-    console.log(`API listening on http://localhost:${port}`);
+    console.log(`API listening on http://0.0.0.0:${port}`);
   });
 }
 
