@@ -4,18 +4,15 @@ const menuItemSchema = new mongoose.Schema(
   {
     date: { type: Date, required: true },
     meal: { type: String, enum: ['breakfast', 'lunch', 'dinner'], required: true },
-    items: [{ type: String, required: true }]
+    items: [{
+      name: { type: String, required: true },
+      description: { type: String },
+      price: { type: Number },
+      imageUrl: { type: String }
+    }]
   },
   { timestamps: true }
 );
 
-menuItemSchema.index({ date: 1, meal: 1 }, { unique: true });
-
 export const MenuItem = mongoose.model('MenuItem', menuItemSchema);
-
-
-
-
-
-
 
