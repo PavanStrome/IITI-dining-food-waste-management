@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../auth/AuthContext.jsx'
+import UploadsPanel from '../components/UploadsPanel.jsx'
+import ReportsPanel from '../components/ReportsPanel.jsx'
+import ExportsPanel from '../components/ExportsPanel.jsx'
+import { MenuManager } from '../components/MenuPanel.jsx'
 
 export default function DashboardStaff() {
   const { user } = useAuth()
@@ -262,6 +266,7 @@ export default function DashboardStaff() {
                   <th className="py-3 px-4 text-left font-semibold">Created</th>
                   <th className="py-3 px-4 text-left font-semibold">Category</th>
                   <th className="py-3 px-4 text-left font-semibold">Description</th>
+                  <th className="py-3 px-4 text-left font-semibold">Photo</th>
                   <th className="py-3 px-4 text-left font-semibold">Mess</th>
                   <th className="py-3 px-4 text-left font-semibold">Status</th>
                 </tr>
@@ -274,6 +279,15 @@ export default function DashboardStaff() {
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium capitalize">{t.category}</span>
                     </td>
                     <td className="py-3 px-4 truncate max-w-[220px]" title={t.description}>{t.description}</td>
+                    <td className="py-3 px-4">
+                      {t.imageUrl ? (
+                        <a href={t.imageUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
                     <td className="py-3 px-4">
                       <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">{t.mess || 'Unknown'}</span>
                     </td>
@@ -290,7 +304,7 @@ export default function DashboardStaff() {
                   </tr>
                 ))}
                 {tickets.length === 0 && (
-                  <tr><td className="py-8 text-center text-gray-500" colSpan={4}>No tickets available</td></tr>
+                  <tr><td className="py-8 text-center text-gray-500" colSpan={6}>No tickets available</td></tr>
                 )}
               </tbody>
             </table>
@@ -368,6 +382,14 @@ export default function DashboardStaff() {
           </div>
         </div>
       </div>
+
+      {/* Menu / Uploads / Reports / Exports */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <MenuManager />
+        <UploadsPanel />
+      </div>
+      <ReportsPanel />
+      <ExportsPanel />
     </div>
   )
 }

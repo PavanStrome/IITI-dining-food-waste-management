@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
@@ -6,8 +7,13 @@ import { requireAuth } from '../middleware/auth.js';
 import { Ticket } from '../models/Ticket.js';
 import { Feedback } from '../models/Feedback.js';
 import { MESS_OPTIONS } from '../utils/constants.js';
+import { sendPasswordResetEmail } from '../utils/mail.js';
 
 const router = Router();
+
+function clientBaseUrl() {
+  return (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+}
 
 router.post('/signup', async (req, res) => {
   try {
@@ -40,9 +46,61 @@ router.post('/login', async (req, res) => {
   }
 });
 
-export default router;
+// Always respond the same to avoid email enumeration
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'Email required' });
+    }
+    const normalized = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalized });
+    const generic = { message: 'If an account exists for that email, a reset link has been sent.' };
 
-// Delete own account
+    if (!user) {
+      return res.json(generic);
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
+    user.passwordResetToken = token;
+    user.passwordResetExpires = expires;
+    await user.save();
+
+    const resetUrl = `${clientBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+    await sendPasswordResetEmail(user.email, resetUrl);
+
+    return res.json(generic);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('forgot-password', err);
+    return res.status(500).json({ message: 'Could not process request' });
+  }
+});
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ message: 'Valid token and password (min 6 characters) required' });
+    }
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: new Date() }
+    });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired reset link' });
+    }
+    user.passwordHash = await bcrypt.hash(password, 10);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+    return res.json({ message: 'Password updated. You can log in now.' });
+  } catch (err) {
+    return res.status(500).json({ message: 'Could not reset password' });
+  }
+});
+
 router.delete('/me', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -57,5 +115,4 @@ router.delete('/me', requireAuth, async (req, res) => {
   }
 });
 
-
-
+export default router;

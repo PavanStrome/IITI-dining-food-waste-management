@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import Login from './pages/Login.jsx'
 import Signup from './pages/Signup.jsx'
+import ForgotPassword from './pages/ForgotPassword.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
 import Welcome from './pages/Welcome.jsx'
 import DashboardStudent from './pages/DashboardStudent.jsx'
 import DashboardStaff from './pages/DashboardStaff.jsx'
@@ -13,8 +15,10 @@ function Nav() {
   const isWelcomePage = location.pathname === '/'
   const isLoginPage = location.pathname === '/login'
   const isSignupPage = location.pathname === '/signup'
+  const isForgotPage = location.pathname === '/forgot-password'
+  const isResetPage = location.pathname === '/reset-password'
   
-  if (isWelcomePage || isLoginPage || isSignupPage) return null
+  if (isWelcomePage || isLoginPage || isSignupPage || isForgotPage || isResetPage) return null
   
   return (
     <div className="flex items-center justify-between p-3 bg-white border-b">
@@ -45,6 +49,8 @@ function RoutesInner() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/student" element={<Protected roles={["student","staff","admin"]}><div className="p-4 max-w-6xl w-full mx-auto"><DashboardStudent /></div></Protected>} />
       <Route path="/staff" element={<Protected roles={["staff","admin"]}><div className="p-4 max-w-6xl w-full mx-auto"><DashboardStaff /></div></Protected>} />
       <Route path="/admin" element={<Protected roles={["admin"]}><div className="p-4 max-w-6xl w-full mx-auto"><DashboardAdmin /></div></Protected>} />
