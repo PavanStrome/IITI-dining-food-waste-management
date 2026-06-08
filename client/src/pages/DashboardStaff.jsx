@@ -7,6 +7,37 @@ import ReportsPanel from '../components/ReportsPanel.jsx'
 import ExportsPanel from '../components/ExportsPanel.jsx'
 import { MenuManager } from '../components/MenuPanel.jsx'
 
+function toDateInputValue(d) {
+  return d.toISOString().slice(0, 10)
+}
+
+function computePresetRange(kind) {
+  if (kind === 'all') return { from: '', to: '' }
+  const to = new Date()
+  const from = new Date()
+  from.setDate(from.getDate() - (kind === '30' ? 29 : 6))
+  return { from: toDateInputValue(from), to: toDateInputValue(to) }
+}
+
+function buildWasteParams(fromDate, toDate, filterMeal) {
+  const params = {}
+  if (fromDate) params.from = fromDate
+  if (toDate) params.to = toDate
+  if (filterMeal) params.meal = filterMeal
+  return params
+}
+
+function filterSummary(preset, fromDate, toDate, filterMeal) {
+  const mealPart = filterMeal ? ` · ${filterMeal}` : ''
+  if (preset === 'all' && !fromDate && !toDate) return `Showing all dates${mealPart}`
+  if (preset === '7') return `Showing last 7 days${mealPart}`
+  if (preset === '30') return `Showing last 30 days${mealPart}`
+  if (fromDate && toDate) return `Showing ${fromDate} → ${toDate}${mealPart}`
+  if (fromDate) return `Showing from ${fromDate}${mealPart}`
+  if (toDate) return `Showing until ${toDate}${mealPart}`
+  return `Showing all dates${mealPart}`
+}
+
 export default function DashboardStaff() {
   const { user } = useAuth()
   const [itemName, setItemName] = useState('')
@@ -17,10 +48,10 @@ export default function DashboardStaff() {
   const [wetWasteKg, setWetWaste] = useState('')
   const [entryDate, setEntryDate] = useState(() => new Date().toISOString().slice(0,10))
 
-  const [fromDate, setFromDate] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0,10)
-  })
-  const [toDate, setToDate] = useState(() => new Date().toISOString().slice(0,10))
+  const [preset, setPreset] = useState('7')
+  const [fromDate, setFromDate] = useState(() => computePresetRange('7').from)
+  const [toDate, setToDate] = useState(() => computePresetRange('7').to)
+  const [filterMeal, setFilterMeal] = useState('')
   const [weekly, setWeekly] = useState([])
   const [logs, setLogs] = useState([])
   const [tickets, setTickets] = useState([])
@@ -41,10 +72,16 @@ export default function DashboardStaff() {
     loadData()
   }
 
+  const applyPreset = (kind) => {
+    setPreset(kind)
+    const { from, to } = computePresetRange(kind)
+    setFromDate(from)
+    setToDate(to)
+  }
+
   const loadData = async () => {
-    // Chart: recompute from backend weekly if range equals last 7 days; otherwise build from logs
     try {
-      const logsRes = await api.get('/waste', { params: { from: fromDate, to: toDate } })
+      const logsRes = await api.get('/waste', { params: buildWasteParams(fromDate, toDate, filterMeal) })
       setLogs(logsRes.data)
       // aggregate per day from fetched logs
       const map = new Map()
@@ -66,7 +103,7 @@ export default function DashboardStaff() {
     }
   }
 
-  useEffect(() => { loadData() }, [fromDate, toDate])
+  useEffect(() => { loadData() }, [fromDate, toDate, filterMeal])
 
   // Poll for tickets and feedback updates every 5 seconds
   useEffect(() => {
@@ -145,17 +182,11 @@ export default function DashboardStaff() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Waste Trend</h2>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Waste Trend</h2>
+                <p className="text-sm text-gray-500 mt-0.5">{filterSummary(preset, fromDate, toDate, filterMeal)}</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <label className="text-sm font-medium text-gray-700">From</label>
-            <input type="date" className="border-2 border-gray-200 p-2 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all outline-none text-sm" value={fromDate} onChange={e=>setFromDate(e.target.value)} />
-            <label className="text-sm font-medium text-gray-700">To</label>
-            <input type="date" className="border-2 border-gray-200 p-2 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all outline-none text-sm" value={toDate} onChange={e=>setToDate(e.target.value)} />
-            <button className="ml-auto bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200" onClick={loadData} type="button">
-              🔄 Refresh
-            </button>
           </div>
           <div className="h-64 bg-white rounded-lg p-2">
             <ResponsiveContainer width="100%" height="100%">
@@ -180,6 +211,64 @@ export default function DashboardStaff() {
             </svg>
           </div>
           <h2 className="text-xl font-bold text-gray-800">Waste Logs</h2>
+        </div>
+        <div className="mb-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 mr-1">Range:</span>
+            {[
+              { id: '7', label: '7 days' },
+              { id: '30', label: '30 days' },
+              { id: 'all', label: 'All' },
+            ].map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => applyPreset(id)}
+                className={`text-sm font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                  preset === id
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-indigo-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">From</label>
+            <input
+              type="date"
+              className="border-2 border-gray-200 p-2 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm"
+              value={fromDate}
+              onChange={(e) => { setFromDate(e.target.value); setPreset('custom') }}
+            />
+            <label className="text-sm font-medium text-gray-700">To</label>
+            <input
+              type="date"
+              className="border-2 border-gray-200 p-2 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm"
+              value={toDate}
+              onChange={(e) => { setToDate(e.target.value); setPreset('custom') }}
+            />
+            <label className="text-sm font-medium text-gray-700 ml-1">Meal</label>
+            <select
+              className="border-2 border-gray-200 p-2 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm bg-white"
+              value={filterMeal}
+              onChange={(e) => setFilterMeal(e.target.value)}
+            >
+              <option value="">All meals</option>
+              <option value="breakfast">breakfast</option>
+              <option value="lunch">lunch</option>
+              <option value="dinner">dinner</option>
+            </select>
+            <button
+              className="ml-auto bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all"
+              onClick={loadData}
+              type="button"
+            >
+              Refresh
+            </button>
+          </div>
+          <p className="text-sm text-gray-500">{filterSummary(preset, fromDate, toDate, filterMeal)} · {logs.length} log{logs.length === 1 ? '' : 's'}</p>
         </div>
         <div className="overflow-auto bg-white rounded-lg">
           <table className="min-w-full text-sm">

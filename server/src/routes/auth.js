@@ -11,8 +11,18 @@ import { sendPasswordResetEmail } from '../utils/mail.js';
 
 const router = Router();
 
-function clientBaseUrl() {
-  return (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+function clientBaseUrl(req) {
+  const envUrl = process.env.CLIENT_URL;
+  if (envUrl) return String(envUrl).replace(/\/$/, '');
+
+  const origin = req?.headers?.origin;
+  if (origin) return String(origin).replace(/\/$/, '');
+
+  const proto = req?.headers?.['x-forwarded-proto'] || req?.protocol || 'http';
+  const host = (typeof req?.get === 'function' ? req.get('host') : req?.headers?.host) || '';
+  if (host) return `${proto}://${host}`.replace(/\/$/, '');
+
+  return 'http://localhost:5173';
 }
 
 router.post('/signup', async (req, res) => {
@@ -67,7 +77,7 @@ router.post('/forgot-password', async (req, res) => {
     user.passwordResetExpires = expires;
     await user.save();
 
-    const resetUrl = `${clientBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+    const resetUrl = `${clientBaseUrl(req)}/reset-password?token=${encodeURIComponent(token)}`;
     await sendPasswordResetEmail(user.email, resetUrl);
 
     return res.json(generic);
