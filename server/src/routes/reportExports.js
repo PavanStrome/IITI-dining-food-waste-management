@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { WasteLog } from '../models/WasteLog.js';
 import { Feedback } from '../models/Feedback.js';
+import { MESS_OPTIONS } from '../utils/constants.js';
 
 const router = Router();
 
@@ -13,7 +14,7 @@ function setCommonWorkbookProps(workbook) {
 
 router.get('/waste.xlsx', requireAuth, requireRole('staff', 'admin'), async (req, res) => {
   try {
-    const { from, to, meal } = req.query;
+    const { from, to, meal, mess } = req.query;
     const query = {};
     if (from || to) {
       query.date = {};
@@ -22,6 +23,13 @@ router.get('/waste.xlsx', requireAuth, requireRole('staff', 'admin'), async (req
     }
     if (meal) query.meal = meal;
 
+    if (req.user.role === 'staff') {
+      if (!req.user.mess) return res.status(400).json({ message: 'Staff mess assignment missing' });
+      query.mess = req.user.mess;
+    } else if (mess && MESS_OPTIONS.includes(mess)) {
+      query.mess = mess;
+    }
+
     const logs = await WasteLog.find(query).sort({ date: 1 }).lean();
 
     const workbook = new ExcelJS.Workbook();
@@ -29,6 +37,7 @@ router.get('/waste.xlsx', requireAuth, requireRole('staff', 'admin'), async (req
     const sheet = workbook.addWorksheet('Waste Logs');
     sheet.columns = [
       { header: 'Date', key: 'date', width: 15 },
+      { header: 'Mess', key: 'mess', width: 14 },
       { header: 'Meal', key: 'meal', width: 12 },
       { header: 'Item Name', key: 'itemName', width: 24 },
       { header: 'Prepared (kg)', key: 'quantityPreparedKg', width: 16 },
@@ -36,6 +45,7 @@ router.get('/waste.xlsx', requireAuth, requireRole('staff', 'admin'), async (req
     ];
     logs.forEach((l) => sheet.addRow({
       date: new Date(l.date).toISOString().slice(0, 10),
+      mess: l.mess || 'N/A',
       meal: l.meal,
       itemName: l.itemName,
       quantityPreparedKg: l.quantityPreparedKg,
@@ -53,7 +63,7 @@ router.get('/waste.xlsx', requireAuth, requireRole('staff', 'admin'), async (req
 
 router.get('/feedback.xlsx', requireAuth, requireRole('staff', 'admin'), async (req, res) => {
   try {
-    const { from, to, meal } = req.query;
+    const { from, to, meal, mess } = req.query;
     const query = {};
     if (from || to) {
       query.date = {};
@@ -61,6 +71,14 @@ router.get('/feedback.xlsx', requireAuth, requireRole('staff', 'admin'), async (
       if (to) query.date.$lte = new Date(to);
     }
     if (meal) query.meal = meal;
+
+    if (req.user.role === 'staff') {
+      if (!req.user.mess) return res.status(400).json({ message: 'Staff mess assignment missing' });
+      query.mess = req.user.mess;
+    } else if (mess && MESS_OPTIONS.includes(mess)) {
+      query.mess = mess;
+    }
+
     const list = await Feedback.find(query).sort({ date: 1 }).lean();
 
     const workbook = new ExcelJS.Workbook();
@@ -68,6 +86,7 @@ router.get('/feedback.xlsx', requireAuth, requireRole('staff', 'admin'), async (
     const sheet = workbook.addWorksheet('Feedback');
     sheet.columns = [
       { header: 'Date', key: 'date', width: 15 },
+      { header: 'Mess', key: 'mess', width: 14 },
       { header: 'Meal', key: 'meal', width: 12 },
       { header: 'Rating', key: 'rating', width: 10 },
       { header: 'Taste', key: 'taste', width: 10 },
@@ -79,6 +98,7 @@ router.get('/feedback.xlsx', requireAuth, requireRole('staff', 'admin'), async (
     ];
     list.forEach((f) => sheet.addRow({
       date: new Date(f.date).toISOString().slice(0, 10),
+      mess: f.mess || 'N/A',
       meal: f.meal,
       rating: f.rating,
       taste: f.ratings?.taste ?? '',

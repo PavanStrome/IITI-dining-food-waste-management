@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { MESS_OPTIONS } from '../utils/constants.js';
 
 const wasteLogSchema = new mongoose.Schema(
   {
@@ -9,6 +10,7 @@ const wasteLogSchema = new mongoose.Schema(
     wasteKg: { type: Number, required: true, min: 0 },
     dryWasteKg: { type: Number, default: 0, min: 0 },
     wetWasteKg: { type: Number, default: 0, min: 0 },
+    mess: { type: String, enum: MESS_OPTIONS, required: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
   },
   { timestamps: true }

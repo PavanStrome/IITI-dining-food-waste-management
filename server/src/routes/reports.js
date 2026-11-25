@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { WasteLog } from '../models/WasteLog.js';
+import { MESS_OPTIONS } from '../utils/constants.js';
 
 const router = Router();
 
@@ -12,8 +13,15 @@ router.get('/weekly', requireAuth, requireRole('staff', 'admin'), async (req, re
     start.setDate(now.getDate() - 6);
     start.setHours(0, 0, 0, 0);
 
+    const match = { date: { $gte: start, $lte: now } };
+    if (req.user.role === 'staff' && req.user.mess) {
+      match.mess = req.user.mess;
+    } else if (req.query.mess && MESS_OPTIONS.includes(req.query.mess)) {
+      match.mess = req.query.mess;
+    }
+
     const data = await WasteLog.aggregate([
-      { $match: { date: { $gte: start, $lte: now } } },
+      { $match: match },
       { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$date' } }, totalWasteKg: { $sum: '$wasteKg' } } },
       { $sort: { _id: 1 } }
     ]);
@@ -28,8 +36,16 @@ router.get('/monthly-top-wasted', requireAuth, requireRole('staff', 'admin'), as
   try {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const match = { date: { $gte: start, $lte: now } };
+    if (req.user.role === 'staff' && req.user.mess) {
+      match.mess = req.user.mess;
+    } else if (req.query.mess && MESS_OPTIONS.includes(req.query.mess)) {
+      match.mess = req.query.mess;
+    }
+
     const data = await WasteLog.aggregate([
-      { $match: { date: { $gte: start, $lte: now } } },
+      { $match: match },
       { $group: { _id: '$itemName', totalWasteKg: { $sum: '$wasteKg' } } },
       { $sort: { totalWasteKg: -1 } },
       { $limit: 10 }
